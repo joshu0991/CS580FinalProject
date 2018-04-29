@@ -27,35 +27,33 @@ class Main
         // file name is second arg
         int[][] puzzle = inputReader.readInput(args[1]);
 
-        // instantiate your solver and invoke solve
         SolverInterface s;
         switch (algorithm)
         {
             case Backtracking:
                 s = new BackTracking(puzzle); 
-                s.solve();
-                System.out.println("Backtracking");
+                System.out.println("Running Backtracking");
                 break;
             case Forwardchecking:
                 s = new ForwardChecking(puzzle);
-                s.solve();
-                System.out.println("Forwardchecking");
+                System.out.println("Running Forwardchecking");
                 break;
             case AC3:
                 s = new AC3Solver(puzzle);
-                s.solve();
-                System.out.println("AC3");
+                System.out.println("Running AC3");
                 break;
             case Heuristic:
                 s = new Heuristic(puzzle);
-                s.solve();
-                System.out.println("Heauristic");
+                System.out.println("Running Heauristic");
                 break;
             case SimulatedAnnealing:
                 s = new SimulatedAnnealing(puzzle);
-                s.solve();
-                System.out.println("Annealing");
+                System.out.println("Running Annealing");
                 break;
+            default:
+                System.out.println("Incorrect algorithm");
+                return;
         }
+        s.solve();
     }
 }
