@@ -11,13 +11,18 @@ import java.util.*;
 
 class AC3Solver implements SolverInterface 
 {
-    private static final List< Integer > domain = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9);
-
+    private final List< Integer > domain = new ArrayList<Integer>(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9));
+    private int counter;
+    private int givenTiles;
+    private Node[][] constraintGraph;
+    private int[][] puzzle;
+    
     public AC3Solver(int[][] puzzle)
     {
         this.puzzle = puzzle;
         constraintGraph = new Node[9][9];
-
+        counter = 0;
+        givenTiles = 0;
         // we preprocess the board to set up the constraint graph
         for (int row = 0; row < 9; ++row)
         {
@@ -26,11 +31,12 @@ class AC3Solver implements SolverInterface
                 int value = puzzle[row][column];
                 if (value != 0)
                 {
-                    constraintGraph[row][column] = new Node(value, true);
+                    constraintGraph[row][column] = new Node(row, column, value, true);
+                    ++givenTiles;
                 }
                 else
                 {
-                    constraintGraph[row][column] = new Node(value, domain, false);
+                    constraintGraph[row][column] = new Node(row, column, value, domain, false);
                 }
             }
         }
@@ -41,7 +47,7 @@ class AC3Solver implements SolverInterface
         // remove from the domain row column then 3 x 3 cell until nothing changes
         // then if the puzzle isn't solved pass the puzzle to backtracking
         boolean changed = true;
-        while (changed)
+        while (counter != 81 && changed)
         {
             changed = false;
 
@@ -90,7 +96,7 @@ class AC3Solver implements SolverInterface
                     if (removeFromColDomain(n.getValue(), column))
                     {
                        changed = true;
-                    } 
+                    }
                 }
             }
             
@@ -114,21 +120,44 @@ class AC3Solver implements SolverInterface
                         {
                            changed = true;
                         } 
-
-                    }                
+                    }
                 }
             }
+        }
+
+        if (counter != 81 - givenTiles)
+        {
+            // we haven't fully solved the board 
+            // so we need to run backtracking
+            
+            // first modify the puzzle to reduce the search domain
+            for (int row = 0; row < 9; ++row)
+            {
+                for (int column = 0; column < 9; ++column)
+                {
+                    puzzle[row][column] = constraintGraph[row][column].getValue();
+                }
+            }
+            System.out.println("Need backtracking with AC3");
+            BackTracking b = new BackTracking(puzzle);
+            b.solve();
+        }
+        else
+        {
+            // otherwise we have solved the puzzle
+            System.out.println("Solved using AC3 only no backtracking needed");
+            printConstraintGraph();
         }
     }
 
     List< Node > getBox(int row, int column)
     {
         List< Node > ret = new ArrayList< Node >(9);
-        for (int rIter = row; rIter < rIter + 3; ++rIter)
+        for (int rIter = row; rIter < row + 3; ++rIter)
         {
             for (int colIter = column; colIter < column + 3; ++colIter)
             {
-                Node n = constraintGraph[row][column];
+                Node n = constraintGraph[rIter][colIter];
                 ret.add(n);
             }
         }
@@ -141,6 +170,12 @@ class AC3Solver implements SolverInterface
         for (int column = 0; column < 9; ++column)
         {
             Node n = constraintGraph[row][column];
+            
+            if (n.haveValue())
+            {
+                continue;
+            }
+            
             if (n.removeFromDomain(value))
             {
                 changed = true;
@@ -155,6 +190,12 @@ class AC3Solver implements SolverInterface
         for (int row = 0; row < 9; ++row)
         {
             Node n = constraintGraph[row][column];
+            
+            if (n.haveValue())
+            {
+                continue;
+            }
+            
             if (n.removeFromDomain(value))
             {
                 changed = true;
@@ -166,8 +207,14 @@ class AC3Solver implements SolverInterface
     private boolean removeFromBoxDomain(int value, List< Node > box)
     {
         boolean changed = false;
-        for (Node n : box)
+        for (int iter = 0; iter < 9; ++iter)
         {
+            Node n = box.get(iter);
+            if (n.haveValue())
+            {
+                continue;
+            }
+            
             if (n.removeFromDomain(value))
             {
                 changed = true;
@@ -175,7 +222,7 @@ class AC3Solver implements SolverInterface
         }
         return changed;
     }
-    
+
     /*
      * A node for the constraint graph
      */
@@ -183,28 +230,31 @@ class AC3Solver implements SolverInterface
     {
         // the possible values remaining for this node
         private List< Integer > domain;
-        
-        // true iff this value was given in the puzzle
-        private boolean setInStone;
 
         // true iff the value has been assigned.
         private boolean haveValue;
 
         private int value;
 
-        public Node(int value, boolean givenValue)
+        // nodes are aware of where they are for easy debugging
+        private int row;
+        private int column;
+        
+        public Node(int row, int column, int value, boolean givenValue)
         {
-            setInStone = givenValue;
             haveValue = givenValue;
             this.value = value;
+            this.row = row;
+            this.column = column;
         }
 
-        public Node(int value, List< Integer > domain, boolean givenValue)
+        public Node(int row, int column, int value, List< Integer > domain, boolean givenValue)
         {
-            this.domain = domain;
-            setInStone = givenValue;
+            this.domain = new ArrayList<Integer>(domain);
             haveValue = givenValue;
             this.value = value;
+            this.row = row;
+            this.column = column;
         }
         
         public boolean removeFromDomain(int value)
@@ -216,6 +266,9 @@ class AC3Solver implements SolverInterface
             {
                 this.value = domain.get(0);
                 haveValue = true;
+                ++counter;
+             //   System.out.println("Added node " + counter + " Set cell " + this.row + ", "
+             //       + this.column + " to " + domain.get(0));
             }
             return ret;
         }
@@ -224,9 +277,22 @@ class AC3Solver implements SolverInterface
         {
             return value;
         }
+        
+        public boolean haveValue()
+        {
+            return haveValue;
+        }
     }
 
-    private int[][] puzzle;
-
-    private Node[][] constraintGraph;
+    private void printConstraintGraph()
+    {
+        for (int row = 0; row < 9; ++row)
+        {
+            for (int col = 0; col < 9; ++col)
+            {
+                System.out.print(constraintGraph[row][col].getValue() + " ");
+            }
+            System.out.println("");
+        }
+    }
 }
