@@ -1,7 +1,9 @@
+import java.util.ArrayList;
+import java.util.List;
 
 class Heuristic implements SolverInterface {
 	private int[][] grid;
-	private int N = 9;
+	static int N = 9;
 
 	public Heuristic(int[][] puzzle) {
 		this.grid = puzzle;
@@ -12,11 +14,18 @@ class Heuristic implements SolverInterface {
 	 */
 	static class Cell {
 		int row, col;
+		List<Integer> possibleAssignments = new ArrayList<Integer>();
 
 		public Cell(int row, int col) {
 			super();
 			this.row = row;
 			this.col = col;
+			
+			//default possible options for a Cell
+			for(int i = 0; i < N; i++)
+			{
+				possibleAssignments.add(i);
+			}
 		}
 
 		@Override
@@ -89,7 +98,7 @@ class Heuristic implements SolverInterface {
 				if (grid[r][c] == 0) {
 					// System.out.println("Trying to getNextMCV");
 					Cell cell = new Cell(r, c);
-					int temp = getMRV(cell);
+					int temp = getMRVAssignment(cell);
 					if (temp < minSoFar) {
 						minSoFar = temp;
 						mcvCell = cell;
@@ -100,11 +109,91 @@ class Heuristic implements SolverInterface {
 
 		return mcvCell;
 	}
-
+	
+	/*
+	 * Find the value(among possible values) which will rule out less possibilities for neighbors.
+	 * @param currCell - is the cell we want to do an assignment
+	 * currCell.possibleAssignments - gives and array of possible values that we can assign for this cell 
+	 */
+	int getLeastConstrainedValue(Cell currCell)
+	{
+		//int[] possibleAssignments = new int[9];
+		
+		int maxOfLeast = -1;
+		int maxOfLeastAssignment = -1;
+		
+		for(int i=0; i < currCell.possibleAssignments.size(); i++)
+		{
+			grid[currCell.row][currCell.col] = currCell.possibleAssignments.get(i);
+			int temp = getMostConstrainedNeigbor(currCell);
+			if(temp > maxOfLeast)
+			{
+				maxOfLeast = temp;
+				//the assignment that made it possible
+				maxOfLeastAssignment = currCell.possibleAssignments.get(i);
+			}
+		}
+		grid[currCell.row][currCell.col] = 0;
+		//once we detect that this is the assignment that we are going to use, remove it from the possible assignments so that we won't use the
+		//same when we backtrack
+		currCell.possibleAssignments.remove(new Integer(maxOfLeastAssignment));
+		return maxOfLeastAssignment;
+	}
+	
+	int getMostConstrainedNeigbor(Cell currCell)
+	{
+		int least = N+1;
+		
+		//column neighbors
+		for (int c = 0; c < N; c++) {
+			if (grid[currCell.row][c] == 0)
+			{
+				int temp = getMRVAssignment(new Cell(currCell.row, c));
+				if(temp < least)
+				{
+					least = temp;
+				}
+			}
+		}
+		
+		//row neighbors
+		for (int r = 0; r < N; r++) {
+			if (grid[r][currCell.col] == 0)
+			{
+				int temp = getMRVAssignment(new Cell(r, currCell.col));
+				if(temp < least)
+				{
+					least = temp;
+				}
+			}
+		}
+		
+		//grid neighbors
+		int x1 = 3 * (currCell.row / 3);
+		int y1 = 3 * (currCell.col / 3);
+		int x2 = x1 + 2;
+		int y2 = y1 + 2;
+		for (int x = x1; x <= x2; x++)
+		{
+			for (int y = y1; y <= y2; y++) {
+				if (grid[x][y] == 0)
+				{
+					int temp = getMRVAssignment(new Cell(x,y));
+					if(temp < least)
+					{
+						least = temp;
+					}
+				}
+			}
+		}
+		
+		return least;
+	}
+	
 	/**
 	 * Utility function to get the possible assignments for @param cell
 	 */
-	int getMRV(Cell cell) {
+		int getMRVAssignment(Cell cell) {
 
 		// each index is possible value in domain
 		// at the end a[i-1] = 1 represents i has been taken and can't be used for this
@@ -112,6 +201,7 @@ class Heuristic implements SolverInterface {
 		// i ranges from 1 <= i <=N for the sudoku puzzle we are dealing with, so 0 to 8
 		// in terms of array (hence i-1 above)
 		int possibleValues[] = new int[N];
+		//List<Integer> possibleValues = new ArrayList<Integer>();
 
 		if (grid[cell.row][cell.col] != 0) {
 			throw new RuntimeException("Cannot call for cell which already has a value");
@@ -120,11 +210,13 @@ class Heuristic implements SolverInterface {
 		for (int c = 0; c < N; c++) {
 			if (grid[cell.row][c] != 0)
 				possibleValues[(grid[cell.row][c]) - 1] = 1; // indicating this value is taken
+				//possibleValues.add((grid[cell.row][c]));
 		}
 		// checking other value assignments in the column
 		for (int r = 0; r < N; r++) {
 			if (grid[r][cell.col] != 0)
 				possibleValues[(grid[r][cell.col]) - 1] = 1; // indicating this value is taken
+				//possibleValues.add(grid[r][cell.col]);
 		}
 
 		// check other value assignments in the grid
@@ -137,16 +229,23 @@ class Heuristic implements SolverInterface {
 			for (int y = y1; y <= y2; y++)
 				if (grid[x][y] != 0)
 					possibleValues[(grid[x][y]) - 1] = 1; // indicating this value is taken
+					//possibleValues.add(grid[x][y]);
 
 		// Run through the array and get the values which are unassigned
-		int noPossibleValues = N;
+		//int noPossibleValues = N;
+		List<Integer> possList = new ArrayList<Integer>();
 		for (int i = 0; i < N; i++) {
-			noPossibleValues = noPossibleValues - possibleValues[i];
+			//noPossibleValues = noPossibleValues - possibleValues[i];
+			if(possibleValues[i] == 0)
+			{
+				possList.add(i+1);
+			}
 		}
 
 		// System.out.println("MRV for cell: "+cell.toString()+" is:
 		// "+noPossibleValues);
-		return noPossibleValues;
+		cell.possibleAssignments = possList;
+		return possList.size();
 	}
 
 	// everything is put together here
@@ -170,8 +269,11 @@ class Heuristic implements SolverInterface {
 
 		// if grid[cur] doesn't have a value
 		// try each possible value
-		for (int i = 1; i <= N; i++) {
+		//for (int i = 1; i <= N; i++) {
+		while (cur.possibleAssignments.size() > 0) {
+		//	System.out.println("Trying to assign Cell: "+cur+"Possible Assignments Size: "+cur.possibleAssignments.size());
 			// check if valid, if valid, then update
+			int i = getLeastConstrainedValue(cur);
 			boolean valid = isValid(cur, i);
 			if (!valid) // i not valid for this cell, try other values
 				continue;
@@ -194,20 +296,21 @@ class Heuristic implements SolverInterface {
 
 	@Override
 	public void solve() {
-		ReadInput read = new ReadInput();
-		grid = read.readInput("sudoku-hard.txt");
-		long start = System.currentTimeMillis();
+		//ReadInput read = new ReadInput();
+		//grid = read.readInput("sudoku-hard.txt");
+	//	long start = System.nanoTime();
 		// boolean solved = true;
 		// System.out.println("Choosing: "+getNextMCVCell().toString());
 		boolean solved = solve(getNextMCVCell());
-		long end = System.currentTimeMillis();
+	//	long end = System.nanoTime();
 		if (!solved) {
 			System.out.println("SUDOKU cannot be solved.");
 			return;
 		}
-		System.out.println("SOLUTION Found: Time taken: " + (end - start) + " milliseconds.\n");
+	//	System.out.println("SOLUTION Found: Time taken: " + (end - start) / 1000 + " microseconds.\n");
 		printGrid(grid);
 	}
+	
 
 	// utility to print the grid
 	void printGrid(int grid[][]) {
